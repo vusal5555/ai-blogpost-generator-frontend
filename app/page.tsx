@@ -53,13 +53,6 @@ export default function Home() {
                 Start Generating →
               </Button>
             </Link>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-slate-700 text-slate-600 hover:bg-slate-800 hover:text-white px-8 py-6 text-lg rounded-xl cursor-pointer"
-            >
-              Watch Demo
-            </Button>
           </div>
         </div>
       </section>
