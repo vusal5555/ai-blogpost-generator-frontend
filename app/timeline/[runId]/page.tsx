@@ -8,6 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { MarkdownContent } from "@/components/MarkDownContent";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 // Types for agent logs
 interface AgentLog {
@@ -149,8 +158,10 @@ export default function TimelinePage() {
 
   const [run, setRun] = useState<TimelineRun | null>(null);
   const [logs, setLogs] = useState<TimelineRun[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showFinalPost, setShowFinalPost] = useState(false);
+  const [finalPost, setFinalPost] = useState("");
 
   useEffect(() => {
     if (runId) {
@@ -176,13 +187,66 @@ export default function TimelinePage() {
       });
       setLogs(transformedLogs);
 
-      // TODO: Replace with actual Supabase client
+      const postResponse = await fetch(
+        `http://localhost:8000/api/posts/${runId}`
+      );
+      if (!postResponse.ok) {
+        throw new Error("Failed to fetch timeline run");
+      }
+
+      const postData = await postResponse.json();
+
+      const post = postData.posts?.[0];
+
+      const topic = post.prd_content
+        .split("\n")[0]
+        .replace(/^Topic:\s*/i, "")
+        .trim();
+
+      const finalPost = post.final_post || "";
+      setFinalPost(finalPost);
+
+      if (transformedLogs.length > 0) {
+        setRun({
+          id: post.id,
+          run_id: post.run_id,
+          agent: transformedLogs[0].agent,
+          content: topic || "Generated Blog Post",
+          status: "completed",
+          created_at: transformedLogs[0].created_at,
+          metadata: undefined,
+        });
+      }
+
+      setLoading(false);
     } catch (err) {
       setError("Failed to fetch timeline data");
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const exportAsMarkdown = () => {
+    if (!finalPost || !run) return;
+
+    // Create markdown content
+    const markdown = `# ${run.content}
+${finalPost}
+`;
+
+    // Create blob and download
+    const blob = new Blob([markdown], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${run.content
+      .slice(0, 30)
+      .replace(/[^a-z0-9]/gi, "-")}.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -192,17 +256,6 @@ export default function TimelinePage() {
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
-
-  const calculateDuration = (start: string, end?: string) => {
-    if (!end) return "In progress...";
-    const duration = new Date(end).getTime() - new Date(start).getTime();
-    const seconds = Math.floor(duration / 1000);
-    const minutes = Math.floor(seconds / 60);
-    if (minutes > 0) {
-      return `${minutes}m ${seconds % 60}s`;
-    }
-    return `${seconds}s`;
   };
 
   if (loading) {
@@ -278,7 +331,7 @@ export default function TimelinePage() {
                   {statusConfig[run.status].label}
                 </Badge>
                 <span className="text-slate-500 text-sm">
-                  Run ID: {Number(run.id).toString().slice(0, 8)}...
+                  Run ID: {run.run_id.slice(0, 8)}...
                 </span>
               </div>
               <h1 className="text-3xl font-bold text-white mb-2">
@@ -286,15 +339,6 @@ export default function TimelinePage() {
               </h1>
               <div className="flex gap-4 text-sm text-slate-400">
                 <span>Started: {formatTimestamp(run.created_at)}</span>
-                {run.created_at && (
-                  <>
-                    <span>•</span>
-                    <span>
-                      Duration:{" "}
-                      {calculateDuration(run.created_at, run.created_at)}
-                    </span>
-                  </>
-                )}
               </div>
             </div>
           )}
@@ -313,7 +357,7 @@ export default function TimelinePage() {
                 const status = statusConfig[log.status];
 
                 return (
-                  <div key={log.id} className="relative pl-16">
+                  <div key={index} className="relative pl-16">
                     {/* Timeline Node */}
                     <div
                       className={`absolute left-3 w-7 h-7 rounded-full bg-linear-to-br ${config.color} flex items-center justify-center text-sm shadow-lg`}
@@ -343,19 +387,10 @@ export default function TimelinePage() {
                         </div>
                         <div className="flex gap-4 text-xs text-slate-500">
                           <span>{formatTimestamp(log.created_at)}</span>
-                          {log.created_at && (
-                            <span>
-                              • Duration:{" "}
-                              {calculateDuration(
-                                log.created_at,
-                                log.created_at
-                              )}
-                            </span>
-                          )}
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-slate-300 mb-4">{log.content}</p>
+                        <MarkdownContent content={log.content} />
 
                         {/* Metadata Display */}
                         {log.metadata && (
@@ -428,14 +463,58 @@ export default function TimelinePage() {
           {/* Actions */}
           {run?.status === "completed" && (
             <div className="mt-10 flex justify-center gap-4">
-              <Button className="bg-linear-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white cursor-pointer ">
-                View Final Post
-              </Button>
+              {/* View Final Post Button with Dialog */}
+              <Dialog open={showFinalPost} onOpenChange={setShowFinalPost}>
+                <DialogTrigger asChild>
+                  <Button className="bg-linear-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white cursor-pointer">
+                    📄 View Final Post
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[85vh] bg-slate-900 border-slate-800 p-0 gap-0">
+                  {/* Header - Fixed */}
+                  <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-800">
+                    <DialogTitle className="text-white text-2xl">
+                      {run.content}
+                    </DialogTitle>
+                  </DialogHeader>
+
+                  <DialogDescription className="p-0 m-0" />
+                  {/* Content - Scrollable */}
+                  <div
+                    className="overflow-y-auto px-6 py-4"
+                    style={{ maxHeight: "calc(85vh - 180px)" }}
+                  >
+                    <MarkdownContent content={finalPost} />
+                  </div>
+
+                  {/* Footer - Fixed */}
+                  <div className="px-6 py-4 border-t border-slate-800 flex justify-end gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(finalPost);
+                      }}
+                      className="border-slate-700 hover:bg-slate-800 hover:text-slate-200 cursor-pointer"
+                    >
+                      📋 Copy
+                    </Button>
+                    <Button
+                      onClick={exportAsMarkdown}
+                      className="bg-white text-slate-900 hover:bg-slate-100"
+                    >
+                      💾 Download
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Export as Markdown Button */}
               <Button
+                onClick={exportAsMarkdown}
                 variant="outline"
                 className="bg-white text-slate-900 hover:bg-slate-100 rounded-sm font-semibold shadow-lg transition-all hover:scale-105 cursor-pointer"
               >
-                Export as Markdown
+                💾 Export as Markdown
               </Button>
             </div>
           )}

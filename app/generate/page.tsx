@@ -18,6 +18,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useState } from "react";
+import { MarkdownContent } from "@/components/MarkDownContent";
 
 const formSchema = z.object({
   topic: z
@@ -227,7 +228,7 @@ export default function GeneratePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="bg-slate-800/50 rounded-lg p-6 text-slate-300 whitespace-pre-wrap max-h-96 overflow-y-auto">
-                    {result.final_post}
+                    <MarkdownContent content={result.final_post} />
                   </div>
                 </CardContent>
               </Card>
