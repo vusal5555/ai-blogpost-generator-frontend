@@ -11,11 +11,15 @@ import { Separator } from "@/components/ui/separator";
 
 // Types for agent logs
 interface AgentLog {
-  id: string;
+  id: number;
   run_id: string;
-  agent_type: "research" | "writer" | "fact_checker" | "polisher";
-  status: "pending" | "running" | "completed" | "failed" | "retrying";
-  content: string;
+  agent:
+    | "researcher"
+    | "writer_agent"
+    | "fact_checker_agent"
+    | "polisher_agent";
+  input: string;
+  output: string;
   metadata?: {
     sources?: string[];
     retry_count?: number;
@@ -25,20 +29,54 @@ interface AgentLog {
     facts_flagged?: number;
   };
   created_at: string;
-  completed_at?: string;
 }
 
 interface TimelineRun {
-  id: string;
-  topic: string;
-  status: "pending" | "running" | "completed" | "failed";
+  id: number;
+  run_id: string;
+  agent:
+    | "researcher"
+    | "writer_agent"
+    | "fact_checker_agent"
+    | "polisher_agent";
+  content: string;
+  status: "completed";
+  metadata?: {
+    sources?: string[];
+    retry_count?: number;
+    error_message?: string;
+    word_count?: number;
+    facts_verified?: number;
+    facts_flagged?: number;
+  };
   created_at: string;
-  completed_at?: string;
+}
+
+function TransformData(backEndLog: AgentLog): TimelineRun {
+  return {
+    id: backEndLog.id,
+    run_id: backEndLog.run_id,
+    agent: backEndLog.agent,
+    status: "completed",
+    content: backEndLog.output,
+    metadata: backEndLog.metadata,
+    created_at: backEndLog.created_at,
+  };
 }
 
 // Agent configuration for display
-const agentConfig = {
-  research: {
+const agentConfig: Record<
+  string,
+  {
+    icon: string;
+    title: string;
+    color: string;
+    bgColor: string;
+    borderColor: string;
+    badgeClass: string;
+  }
+> = {
+  researcher: {
     icon: "🔍",
     title: "Research Agent",
     color: "from-blue-500 to-cyan-500",
@@ -46,7 +84,7 @@ const agentConfig = {
     borderColor: "border-blue-500/30",
     badgeClass: "bg-blue-500/20 text-blue-400 border-blue-500/30",
   },
-  writer: {
+  writer_agent: {
     icon: "✍️",
     title: "Writer Agent",
     color: "from-violet-500 to-purple-500",
@@ -54,7 +92,7 @@ const agentConfig = {
     borderColor: "border-violet-500/30",
     badgeClass: "bg-violet-500/20 text-violet-400 border-violet-500/30",
   },
-  fact_checker: {
+  fact_checker_agent: {
     icon: "✓",
     title: "Fact-Checker Agent",
     color: "from-emerald-500 to-green-500",
@@ -62,7 +100,7 @@ const agentConfig = {
     borderColor: "border-emerald-500/30",
     badgeClass: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
   },
-  polisher: {
+  polisher_agent: {
     icon: "✨",
     title: "Polisher Agent",
     color: "from-amber-500 to-orange-500",
@@ -72,6 +110,14 @@ const agentConfig = {
   },
 };
 
+const defaultAgentConfig = {
+  icon: "🤖",
+  title: "Unknown Agent",
+  color: "from-slate-500 to-slate-600",
+  bgColor: "bg-slate-500/10",
+  borderColor: "border-slate-500/30",
+  badgeClass: "bg-slate-500/20 text-slate-400 border-slate-500/30",
+};
 // Status badge configuration
 const statusConfig = {
   pending: {
@@ -102,7 +148,7 @@ export default function TimelinePage() {
   const runId = params.runId as string;
 
   const [run, setRun] = useState<TimelineRun | null>(null);
-  const [logs, setLogs] = useState<AgentLog[]>([]);
+  const [logs, setLogs] = useState<TimelineRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -117,92 +163,20 @@ export default function TimelinePage() {
       setLoading(true);
       setError(null);
 
+      const logsResponse = await fetch(
+        `http://localhost:8000/api/runs/${runId}/logs`
+      ); // TODO: Replace with actual Supabase client
+      if (!logsResponse.ok) {
+        throw new Error("Failed to fetch timeline logs");
+      }
+      const logsData = await logsResponse.json();
+
+      const transformedLogs = logsData.logs.map((log: AgentLog) => {
+        return TransformData(log);
+      });
+      setLogs(transformedLogs);
+
       // TODO: Replace with actual Supabase client
-      // Example Supabase query:
-      // const { data: runData, error: runError } = await supabase
-      //   .from('runs')
-      //   .select('*')
-      //   .eq('id', runId)
-      //   .single();
-      //
-      // const { data: logsData, error: logsError } = await supabase
-      //   .from('agent_logs')
-      //   .select('*')
-      //   .eq('run_id', runId)
-      //   .order('created_at', { ascending: true });
-
-      // Mock data for development
-      const mockRun: TimelineRun = {
-        id: runId,
-        topic: "The Future of AI in Healthcare",
-        status: "completed",
-        created_at: new Date(Date.now() - 3600000).toISOString(),
-        completed_at: new Date().toISOString(),
-      };
-
-      const mockLogs: AgentLog[] = [
-        {
-          id: "1",
-          run_id: runId,
-          agent_type: "research",
-          status: "completed",
-          content:
-            "Found 15 relevant sources about AI applications in healthcare, including recent FDA approvals, clinical trials, and expert opinions from leading medical institutions.",
-          metadata: {
-            sources: [
-              "https://www.nature.com/articles/ai-healthcare",
-              "https://www.fda.gov/ai-medical-devices",
-              "https://pubmed.ncbi.nlm.nih.gov/ai-diagnostics",
-            ],
-          },
-          created_at: new Date(Date.now() - 3500000).toISOString(),
-          completed_at: new Date(Date.now() - 3400000).toISOString(),
-        },
-        {
-          id: "2",
-          run_id: runId,
-          agent_type: "writer",
-          status: "completed",
-          content:
-            "Generated a comprehensive 1,500-word article covering AI diagnostics, drug discovery, personalized medicine, and ethical considerations in healthcare AI.",
-          metadata: {
-            word_count: 1523,
-          },
-          created_at: new Date(Date.now() - 3300000).toISOString(),
-          completed_at: new Date(Date.now() - 3000000).toISOString(),
-        },
-        {
-          id: "3",
-          run_id: runId,
-          agent_type: "fact_checker",
-          status: "completed",
-          content:
-            "Verified all statistical claims and citations. Found 2 claims that needed additional sourcing. All facts now verified with primary sources.",
-          metadata: {
-            facts_verified: 12,
-            facts_flagged: 2,
-            retry_count: 1,
-          },
-          created_at: new Date(Date.now() - 2900000).toISOString(),
-          completed_at: new Date(Date.now() - 2500000).toISOString(),
-        },
-        {
-          id: "4",
-          run_id: runId,
-          agent_type: "polisher",
-          status: "completed",
-          content:
-            "Final polish complete. Improved readability score from 65 to 78. Added SEO-optimized headings, meta description, and internal linking suggestions.",
-          metadata: {
-            word_count: 1547,
-          },
-          created_at: new Date(Date.now() - 2400000).toISOString(),
-          completed_at: new Date(Date.now() - 2200000).toISOString(),
-        },
-      ];
-
-      setRun(mockRun);
-      setLogs(mockLogs);
     } catch (err) {
       setError("Failed to fetch timeline data");
       console.error(err);
@@ -304,20 +278,20 @@ export default function TimelinePage() {
                   {statusConfig[run.status].label}
                 </Badge>
                 <span className="text-slate-500 text-sm">
-                  Run ID: {run.id.slice(0, 8)}...
+                  Run ID: {Number(run.id).toString().slice(0, 8)}...
                 </span>
               </div>
               <h1 className="text-3xl font-bold text-white mb-2">
-                {run.topic}
+                {run.content.slice(0, 50)}...
               </h1>
               <div className="flex gap-4 text-sm text-slate-400">
                 <span>Started: {formatTimestamp(run.created_at)}</span>
-                {run.completed_at && (
+                {run.created_at && (
                   <>
                     <span>•</span>
                     <span>
                       Duration:{" "}
-                      {calculateDuration(run.created_at, run.completed_at)}
+                      {calculateDuration(run.created_at, run.created_at)}
                     </span>
                   </>
                 )}
@@ -335,7 +309,7 @@ export default function TimelinePage() {
             {/* Timeline Items */}
             <div className="space-y-6">
               {logs.map((log, index) => {
-                const config = agentConfig[log.agent_type];
+                const config = agentConfig[log.agent];
                 const status = statusConfig[log.status];
 
                 return (
@@ -369,12 +343,12 @@ export default function TimelinePage() {
                         </div>
                         <div className="flex gap-4 text-xs text-slate-500">
                           <span>{formatTimestamp(log.created_at)}</span>
-                          {log.completed_at && (
+                          {log.created_at && (
                             <span>
                               • Duration:{" "}
                               {calculateDuration(
                                 log.created_at,
-                                log.completed_at
+                                log.created_at
                               )}
                             </span>
                           )}
