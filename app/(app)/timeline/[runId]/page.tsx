@@ -470,7 +470,7 @@ ${finalPost}
                     📄 View Final Post
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[85vh] bg-slate-900 border-slate-800 p-0 gap-0">
+                <DialogContent className="max-w-4xl max-h-[85vh] bg-slate-900 border-slate-800 p-0 gap-0 hide-scrollbars">
                   {/* Header - Fixed */}
                   <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-800">
                     <DialogTitle className="text-white text-2xl">
