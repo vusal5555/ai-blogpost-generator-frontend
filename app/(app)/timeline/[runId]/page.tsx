@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,10 +12,13 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
+import { Textarea } from "@/components/ui/textarea";
 
 // Types for agent logs
 interface AgentLog {
@@ -162,6 +164,13 @@ export default function TimelinePage() {
   const [error, setError] = useState<string | null>(null);
   const [showFinalPost, setShowFinalPost] = useState(false);
   const [finalPost, setFinalPost] = useState("");
+  const [isRegeneration, setIsRegeneration] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editedPRD, setEditedPRD] = useState("");
+  const [fullPostData, setFullPostData] = useState<any>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const router = useRouter();
 
   useEffect(() => {
     if (runId) {
@@ -197,6 +206,8 @@ export default function TimelinePage() {
       const postData = await postResponse.json();
 
       const post = postData.posts?.[0];
+
+      setFullPostData(post);
 
       const topic = post.prd_content
         .split("\n")[0]
@@ -256,6 +267,46 @@ ${finalPost}
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const handleOpenEdit = () => {
+    if (run) {
+      setEditedPRD(run.content);
+      setShowEditDialog(true);
+    }
+  };
+
+  const handleRegenerate = async () => {
+    const currentValue = textareaRef.current?.value || editedPRD;
+    if (currentValue.trim() === "") return;
+
+    try {
+      setIsRegeneration(true);
+      setShowEditDialog(false);
+
+      const response = await fetch("http://localhost:8000/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prd_content: currentValue,
+          original_run_id: runId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to regenerate post");
+      }
+
+      const data = await response.json();
+
+      router.push(`/timeline/${data.run_id}`);
+    } catch (error) {
+      console.error("Regeneration error:", error);
+      alert("Failed to regenerate content. Please try again.");
+      setIsRegeneration(false);
+    }
   };
 
   if (loading) {
@@ -486,6 +537,62 @@ ${finalPost}
               >
                 💾 Export as Markdown
               </Button>
+
+              <Button
+                onClick={handleOpenEdit}
+                disabled={isRegeneration}
+                variant="outline"
+                className="bg-white text-slate-900 hover:bg-slate-100 cursor-pointer"
+              >
+                {isRegeneration ? "⏳ Regenerating..." : "✏️ Edit & Regenerate"}
+              </Button>
+
+              {/* Your existing buttons */}
+              <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+                <DialogContent className="max-w-3xl bg-slate-900 border-slate-800">
+                  <DialogHeader>
+                    <DialogTitle className="text-white text-xl">
+                      Edit Topic & Regenerate
+                    </DialogTitle>
+                    <DialogDescription className="text-slate-400">
+                      Modify your topic or requirements and regenerate the
+                      content with all AI agents.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="py-4">
+                    <Textarea
+                      ref={textareaRef}
+                      defaultValue={editedPRD}
+                      rows={10}
+                      placeholder="Edit your topic or requirements..."
+                      className="bg-slate-800 border-slate-700 text-white"
+                    />
+                    <p className="text-sm text-slate-500 mt-2">
+                      This will create a new post while preserving the original.
+                    </p>
+                  </div>
+
+                  <DialogFooter className="gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowEditDialog(false)}
+                      className="border-slate-700 text-slate-600 hover:text-slate-300 hover:bg-slate-800 cursor-pointer"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleRegenerate}
+                      disabled={isRegeneration}
+                      className="bg-linear-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 cursor-pointer"
+                    >
+                      {isRegeneration
+                        ? "⏳ Regenerating..."
+                        : "🔄 Regenerate Content"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
         </div>
