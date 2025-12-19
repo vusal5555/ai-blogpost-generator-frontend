@@ -15,7 +15,7 @@ type Post = {
 };
 
 const Dashboard = () => {
-  const [posts, setPosts] = useState<Post[]>([]);
+  let [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,6 +54,10 @@ const Dashboard = () => {
         )
       : "0";
 
+  posts = posts.sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
   // Loading skeleton
   if (isLoading) {
     return (
