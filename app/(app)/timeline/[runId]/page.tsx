@@ -121,14 +121,6 @@ const agentConfig: Record<
   },
 };
 
-const defaultAgentConfig = {
-  icon: "🤖",
-  title: "Unknown Agent",
-  color: "from-slate-500 to-slate-600",
-  bgColor: "bg-slate-500/10",
-  borderColor: "border-slate-500/30",
-  badgeClass: "bg-slate-500/20 text-slate-400 border-slate-500/30",
-};
 // Status badge configuration
 const statusConfig = {
   pending: {
@@ -184,7 +176,7 @@ export default function TimelinePage() {
       setError(null);
 
       const logsResponse = await fetch(
-        `http://localhost:8000/api/runs/${runId}/logs`
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/runs/${runId}/logs`
       ); // TODO: Replace with actual Supabase client
       if (!logsResponse.ok) {
         throw new Error("Failed to fetch timeline logs");
@@ -197,7 +189,7 @@ export default function TimelinePage() {
       setLogs(transformedLogs);
 
       const postResponse = await fetch(
-        `http://localhost:8000/api/posts/${runId}`
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/posts/${runId}`
       );
       if (!postResponse.ok) {
         throw new Error("Failed to fetch timeline run");
@@ -284,16 +276,19 @@ ${finalPost}
       setIsRegeneration(true);
       setShowEditDialog(false);
 
-      const response = await fetch("http://localhost:8000/api/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prd_content: currentValue,
-          original_run_id: runId,
-        }),
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/generate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prd_content: currentValue,
+            original_run_id: runId,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to regenerate post");
