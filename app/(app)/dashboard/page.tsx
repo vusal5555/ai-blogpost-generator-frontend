@@ -26,7 +26,11 @@ const Dashboard = () => {
   const fetchPosts = async () => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/posts`
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/posts`,
+        {
+          cache: "force-cache",
+          next: { revalidate: 60 },
+        },
       );
 
       if (!response.ok) {
@@ -52,13 +56,13 @@ const Dashboard = () => {
   const avgRetries =
     totalPosts > 0
       ? (posts.reduce((acc, p) => acc + p.retry_count, 0) / totalPosts).toFixed(
-          1
+          1,
         )
       : "0";
 
   posts = posts.sort(
     (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
   // Loading skeleton
   if (isLoading) {
@@ -267,7 +271,7 @@ const Dashboard = () => {
                                   year: "numeric",
                                   hour: "2-digit",
                                   minute: "2-digit",
-                                }
+                                },
                               )}
                             </p>
                           </div>

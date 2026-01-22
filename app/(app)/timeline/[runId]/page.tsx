@@ -176,8 +176,13 @@ export default function TimelinePage() {
       setError(null);
 
       const logsResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/runs/${runId}/logs`
-      ); // TODO: Replace with actual Supabase client
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/runs/${runId}/logs`,
+        {
+          cache: "force-cache",
+          next: { revalidate: 60 },
+        },
+      );
+
       if (!logsResponse.ok) {
         throw new Error("Failed to fetch timeline logs");
       }
@@ -189,7 +194,11 @@ export default function TimelinePage() {
       setLogs(transformedLogs);
 
       const postResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/posts/${runId}`
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/posts/${runId}`,
+        {
+          cache: "force-cache",
+          next: { revalidate: 60 },
+        },
       );
       if (!postResponse.ok) {
         throw new Error("Failed to fetch timeline run");
@@ -277,7 +286,7 @@ ${finalPost}
       setShowEditDialog(false);
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/generate`,
+        `https://ai-blogpost-generator-backend-production.up.railway.app/api/generate`,
         {
           method: "POST",
           headers: {
@@ -287,7 +296,7 @@ ${finalPost}
             prd_content: currentValue,
             original_run_id: runId,
           }),
-        }
+        },
       );
 
       if (!response.ok) {
