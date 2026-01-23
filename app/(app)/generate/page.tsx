@@ -56,13 +56,16 @@ export default function GeneratePage() {
         ? `${values.topic}\n\nAdditional Instructions: ${values.instructions}`
         : values.topic;
 
-      const response = await fetch(`http://localhost:8000/api/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/generate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ prd_content: prdContent }),
         },
-        body: JSON.stringify({ prd_content: prdContent }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error("Failed to generate blog post");
