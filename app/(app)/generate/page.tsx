@@ -57,7 +57,7 @@ export default function GeneratePage() {
         : values.topic;
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/generate`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/generate`,
         {
           method: "POST",
           headers: {
