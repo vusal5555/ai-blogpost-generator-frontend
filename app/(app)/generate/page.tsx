@@ -18,7 +18,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { MarkdownContent } from "@/components/MarkDownContent";
+import { createBlogPost } from "@/lib/actions";
 
 const formSchema = z.object({
   topic: z
@@ -38,6 +40,7 @@ type Result = {
 };
 
 export default function GeneratePage() {
+  const router = useRouter();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -56,24 +59,10 @@ export default function GeneratePage() {
         ? `${values.topic}\n\nAdditional Instructions: ${values.instructions}`
         : values.topic;
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/generate`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ prd_content: prdContent }),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to generate blog post");
-      }
-
-      const data = await response.json();
+      const data = await createBlogPost(prdContent);
 
       setResult(data);
+      router.refresh();
 
       console.log("Generated Blog Post:", data);
       form.reset();

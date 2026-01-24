@@ -1,5 +1,3 @@
-"use client";
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,39 +12,31 @@ type Post = {
   retry_count: number;
 };
 
-const Dashboard = () => {
-  let [posts, setPosts] = useState<Post[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const fetchPosts = async () => {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/posts`,
+    {
+      next: { revalidate: 30, tags: ["posts"] },
+    },
+  );
 
-  useEffect(() => {
-    fetchPosts();
-  }, []);
+  if (!response.ok) {
+    throw new Error("Failed to fetch posts");
+  }
 
-  const fetchPosts = async () => {
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/posts`,
-        {
-          cache: "force-cache",
-          next: { revalidate: 60 },
-        },
-      );
+  const postsData = await response.json();
+  return Array.isArray(postsData) ? postsData : postsData.posts || [];
+};
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch posts");
-      }
+const Dashboard = async () => {
+  let posts: Post[] = [];
+  let error: string | null = null;
 
-      const postsData = await response.json();
-      setPosts(Array.isArray(postsData) ? postsData : postsData.posts || []);
-      setIsLoading(false);
-    } catch (error) {
-      setError((error as Error).message);
-      setIsLoading(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  try {
+    posts = await fetchPosts();
+  } catch (err) {
+    error = (err as Error).message;
+  }
 
   // Calculate stats
   const totalPosts = posts.length;
@@ -64,25 +54,6 @@ const Dashboard = () => {
     (a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
-  // Loading skeleton
-  if (isLoading) {
-    return (
-      <main className="py-12 px-4 sm:px-6 lg:px-8">
-        <div>
-          <div className="animate-pulse">
-            <div className="h-10 bg-slate-800 rounded-lg w-80 mb-8"></div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-32 bg-slate-800 rounded-xl"></div>
-              ))}
-            </div>
-            <div className="h-96 bg-slate-800 rounded-xl"></div>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
   // Error state
   if (error) {
     return (
@@ -95,16 +66,11 @@ const Dashboard = () => {
                 Failed to load dashboard
               </h3>
               <p className="text-red-400 mb-6">{error}</p>
-              <Button
-                onClick={() => {
-                  setError(null);
-                  setIsLoading(true);
-                  fetchPosts();
-                }}
-                className="bg-linear-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 cursor-pointer"
-              >
-                Try Again
-              </Button>
+              <Link href="/dashboard">
+                <Button className="bg-linear-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 cursor-pointer">
+                  Try Again
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>
